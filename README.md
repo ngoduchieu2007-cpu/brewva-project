@@ -1,106 +1,90 @@
 # Brewva
 
-A small Duolingo-style web app for learning Java from scratch. Built as a static
-site with plain HTML/CSS/JavaScript, no framework and no build step.
+A Duolingo-style app for learning programming from zero. Pick Java or Python,
+work through bite-sized lessons, and write real code directly in the browser.
 
-Live: [brewva.netlify.app](https://brewva.netlify.app/)
+**Live:** https://serene-phoenix-131e99.netlify.app
 
+<img width="445" height="361" alt="image" src="https://github.com/user-attachments/assets/ac608dbd-75bb-4149-a7e1-1b30e2016716" />
 
-## What's inside
+---
 
-5 units, 14 lessons, around 80 questions covering the basics: what Java is,
-printing, variables, math, if/else, and loops.
+## Features
 
-Question types:
-- multiple choice
-- true/false
-- build the line by tapping tiles into order
-- type the code yourself in a textarea
+- **Two language tracks** — Java and Python, switchable from the home screen
+- **Five question types** — multiple choice, true/false, tile-ordering, fill-in-the-blank, and write-code
+- **Real Python execution** — type-code answers run in-browser via Pyodide (WebAssembly CPython); any valid solution passes, not just string matches
+- **AI feedback** — wrong answers on code questions get a contextual hint from Claude, fetched server-side so the API key stays private
+- **Gamification** — hearts, XP, daily streak, confetti
+- **PWA** — installable on mobile, progress saved in localStorage
 
-The type-code questions don't run Java (you can't in a browser). They normalize
-the input (trim spaces, fix smart quotes, ignore spacing around symbols) and
-compare it against the accepted answers, so case and semicolons still matter.
+<img width="478" height="853" alt="image" src="https://github.com/user-attachments/assets/a33c22f4-869b-4674-83cd-db83699c9d8d" />
 
-Other stuff: 5 hearts that regenerate over time, XP, a daily streak, and progress
-saved in localStorage. It also works as an installable PWA (add to home screen on
-your phone).
+---
+
+## Stack
+
+Vanilla HTML, CSS, and JavaScript. No framework, no bundler, no build step.
+Scripts share a global scope and load in order via plain `<script>` tags.
+
+AI hints are proxied through a Netlify serverless function (`netlify/functions/check-code.js`)
+so the Claude API key is never exposed to the client.
 
 ## Project layout
 
 ```
-index.html           page shell, loads the CSS and scripts
-css/styles.css       all the styling
-data/units.js        lesson content (this is where you add questions)
+index.html                  page shell
+css/styles.css
+data/
+  units.js                  Java lesson content
+  python.js                 Python lesson content
 js/
-  icons.js           svg icons + the mascot
-  helpers.js         small dom/string helpers
-  state.js           save/load, hearts, streak
-  questions.js       question screen + the 4 types + answer checking
-  screens.js         the other screens (home, intro, complete, etc.)
-  app.js             router, runs last
+  state.js                  save/load, hearts, streak
+  screens.js                home, intro, complete screens
+  questions.js              question types + answer checking
+  pyodide-runner.js         lazy Pyodide loader + Python runner
+  icons.js / helpers.js / app.js
+netlify/functions/
+  check-code.js             Claude API proxy
 ```
 
-There's no bundler. The scripts are loaded in order in index.html and share the
-global scope, so the order matters:
-units, icons, helpers, state, questions, screens, app. app.js defines render()
-and calls it once at the end to start things.
+## Running locally
 
-## Running it locally
-
-Easiest is to serve the folder over http, because a few browsers block
-localStorage on file:// urls:
-
-```
+```bash
 python3 -m http.server 8000
+# open http://localhost:8000
 ```
 
-then open http://localhost:8000. Or use the Live Server extension in VS Code.
+A local server is needed because some browsers restrict localStorage on `file://` URLs.
+Live Server in VS Code also works.
 
 ## Deploying
 
-It's a static site, so anything that hosts static files works.
+The site is static. Drag the project folder onto https://app.netlify.com/drop,
+or connect the repo for automatic deploys on push (config in `netlify.toml`).
 
-- Netlify: drag the folder onto https://app.netlify.com/drop, or connect the repo
-  for auto-deploy on push (config is in netlify.toml, no build command).
-- GitHub Pages: the workflow in .github/workflows/deploy-pages.yml publishes on
-  every push to main once you turn on Pages with the GitHub Actions source.
+For AI hints to work, add `CLAUDE_API_KEY` in Netlify under
+**Site configuration → Environment variables**. The app works fine without it —
+hints just won't appear.
 
-## Adding questions
+## Adding content
 
-Open data/units.js, find a lesson, and add to its questions array. The shapes:
+Open `data/units.js` or `data/python.js`, find a lesson, and append to its
+`questions` array. Five question types are supported:
 
 ```js
-// multiple choice
-{ type:'mc', q:'What is Java?', opts:['A','B','C','D'], ans:1, why:'...' }
+{ type: 'mc',    q: '...', opts: ['A','B','C','D'], ans: 1, why: '...' }
+{ type: 'tf',    q: '...', ans: true, why: '...' }
+{ type: 'build', q: '...', tiles: [...], ans: [...], why: '...' }
+{ type: 'fill',  q: '...', template: 'int x ____ 5;', opts: [...], ans: 0, why: '...' }
 
-// true/false
-{ type:'tf', q:'Java is a language.', ans:true, why:'...' }
+// Java — checked by string comparison
+{ type: 'type', q: '...', hint: '...', accept: ['int x = 5;'], why: '...' }
 
-// build (tap tiles into order)
-{ type:'build', q:'Print "Hi"',
-  tiles:['System.out.println(','"Hi"',')',';'],
-  ans:['System.out.println(','"Hi"',')',';'], why:'...' }
-
-// fill in the blank (____ is the gap)
-{ type:'fill', q:'Complete:', template:'int x ____ 5;',
-  opts:['=','==','+','-'], ans:0, why:'...' }
-
-// type real code (accept can hold several valid answers)
-{ type:'type', q:'Declare an int age = 18.',
-  hint:'int name = value;', accept:['int age = 18;'], why:'...' }
+// Python — code runs via Pyodide, stdout is compared
+{ type: 'type', q: '...', hint: '...', expected_output: '5', test_code: 'print(x)', why: '...' }
 ```
-
-For a whole new unit, copy an existing object in the UNITS array, give it a new
-id, a color, and an icon name that exists in js/icons.js.
-
-## Ideas for later
-
-- more Java units (methods, arrays, classes, exceptions)
-- other languages as separate data files (python, c, c++) with a switcher
-- a review mode for questions you got wrong
-- run Python for real in the browser with Pyodide
-- a settings screen and a service worker for offline use
 
 ## License
 
-MIT, see LICENSE.
+MIT
